@@ -1,0 +1,120 @@
+name: email-triage-env
+version: "1.0.0"
+description: >
+  A real-world email triage environment where AI agents learn to classify,
+  prioritize, route, and decide on replies for incoming business emails.
+  Simulates the daily task performed by executive assistants, customer support
+  leads, and operations teams. Three tasks of increasing difficulty.
+
+tags:
+  - openenv
+  - email
+  - triage
+  - nlp
+  - classification
+  - real-world
+
+author: "Yash Sukhram Maind"
+license: MIT
+
+environment:
+  type: text
+  interface: http_api
+  base_url: "http://localhost:7860"
+
+api:
+  reset:
+    method: POST
+    path: /reset
+    body:
+      task_id: string
+      seed: integer (optional)
+  step:
+    method: POST
+    path: /step
+    body:
+      episode_id: string
+      action: TriageAction
+  state:
+    method: GET
+    path: /state/{episode_id}
+  tasks:
+    method: GET
+    path: /tasks
+  grader:
+    method: POST
+    path: /grader
+    body:
+      episode_id: string
+      task_id: string
+  baseline:
+    method: POST
+    path: /baseline
+
+observation_space:
+  type: object
+  fields:
+    email_id: string
+    subject: string
+    sender: string
+    body: string
+    sender_domain: string
+    has_attachment: boolean
+    word_count: integer
+    inbox_position: integer
+    current_step: integer
+    max_steps: integer
+    emails_remaining: integer
+    task_id: string
+
+action_space:
+  type: object
+  fields:
+    category:
+      type: string
+      enum: [spam, urgent, normal, newsletter, internal]
+    priority:
+      type: integer
+      minimum: 1
+      maximum: 5
+    department:
+      type: string
+      enum: [sales, support, engineering, hr, management, ignore]
+    should_reply:
+      type: boolean
+
+reward:
+  range: [-1.0, 1.0]
+  type: shaped
+  description: >
+    Per-step reward based on correctness of triage decision.
+    Partial credit for priority (off-by-one = 0.5 credit).
+    Penalties for misclassifying urgent emails and invalid actions.
+    Final episode score computed by grader (0.0–1.0).
+
+tasks:
+  - id: task_spam_detection
+    name: "Spam Detection"
+    difficulty: easy
+    max_steps: 10
+    success_threshold: 0.7
+    scoring_metric: spam_f1
+
+  - id: task_priority_routing
+    name: "Priority & Department Routing"
+    difficulty: medium
+    max_steps: 12
+    success_threshold: 0.6
+    scoring_metric: weighted_accuracy
+
+  - id: task_full_triage
+    name: "Full Email Triage"
+    difficulty: hard
+    max_steps: 20
+    success_threshold: 0.55
+    scoring_metric: composite_accuracy
+
+deployment:
+  platform: huggingface_spaces
+  docker: true
+  dockerfile: Dockerfile
